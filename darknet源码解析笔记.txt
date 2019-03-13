@@ -1,0 +1,191 @@
+//darknet源码解析
+
+/*
+Note
+*/这里是笔记部分
+
+在笔记本
+F:\darknet_for_learning\darknet源码解析笔记.txt
+
+注释直接写在肖老师电脑的源码上
+D:\jiangwenxiang\CUDA_practice\darknet\
+
+然后一些写的很好的函数放在自己的笔记本上
+F:\darknet_for_learning\
+
+20180806
+
+//main()函数
+./examples/darknet.c
+
+
+
+int main(int argc, char **argv)
+{
+	gpu_index = find_int_arg(argc, argv, "-i", 0);
+	
+	else if (0 == strcmp(argv[1], "detector")){
+        run_detector(argc, argv);
+}
+
+
+
+
+/*
+Note
+Ｃ语言规定main函数的参数只能有两个，习惯上这两个参数写为argc和argv
+int argc//参数个数
+char **argv //argc个指针数组，用于存放程序参数
+如果没有这两个参数，那么默认的argc为1，argc为 ./darknet （就是可执行文件文件名）
+
+注意这里的argc，argv是从操作系统命令行获得的
+*/
+
+#include<stdio.h>
+void main(int argc,char**argv)
+{
+    int i;
+    printf("argc=%d\n",argc);
+    for(i=0;i<argc;i++)
+    {
+        printf("i=%d:%s\n",i,*(argv+i));
+    }
+
+}
+
+
+jiangwenxiang@amax:~/darknet/c_practice$ ./practice_02 jwx is huster
+argc=4
+i=0:./practice_02
+i=1:jwx
+i=2:is
+i=3:huster
+
+
+*/
+
+//detector.py
+./examples/detector.py
+
+
+//detector.c
+792 
+void run_detector(int argc, char **argv)
+{
+	if(0==strcmp(argv[2], "test")) test_detector(datacfg, cfg, weights, filename, thresh, hier_thresh, outfile, fullscreen);
+	
+}
+
+
+//utils.c
+char *find_char_arg(argc, argv, "-gpus", 0)
+
+数的转换函数，存储分配函数等一般实用函数原型包含在stdlib.h中
+atoi();
+malloc();
+free();
+
+option_find_int()源码在src/option_list.c
+
+// detector.c
+
+load_alphabet是读进去ASCII 字母表
+
+network *net = load_network(cfgfile, weightfile, 0);
+
+set_batch_network(net, 1);
+
+void test_detector(char *datacfg, char *cfgfile, char *weightfile, char *filename, float thresh, float hier_thresh, char *outfile, int fullscreen)
+{
+    list *options = read_data_cfg(datacfg);
+
+list *read_data_cfg(char *filename)
+{
+    FILE *file = fopen(filename, "r");
+    if(file == 0) file_error(filename); //如果文件打开失败则返回一个空指针
+    char *line;
+    int nu = 0;
+    list *options = make_list();
+    while((line=fgetl(file)) != 0){
+        ++ nu;
+        strip(line);
+        switch(line[0]){
+            case '\0':
+            case '#':
+            case ';':
+                free(line);
+                break;
+            default:
+                if(!read_option(line, options)){
+                    fprintf(stderr, "Config file error line %d, could parse: %s\n", nu, line);
+                    free(line);
+                }
+                break;
+        }
+    }
+    fclose(file);
+    return options;
+}
+
+	
+typedef struct node{
+    void *val;
+    struct node *next;
+    struct node *prev;
+} node;
+
+typedef struct list{
+    int size;
+    node *front;
+    node *back;
+} list;
+
+
+list *make_list()
+{
+	list *l = malloc(sizeof(list));
+	l->size = 0;
+	l->front = 0;
+	l->back = 0;
+	return l;
+}
+
+//我不明白这个fgetl和fgets有什么区别
+
+char *fgetl(FILE *fp)
+{
+    if(feof(fp)) return 0; //如果在文件尾 则返回1 
+    
+	/*
+	jiangwenxiang@amax:~/darknet$ echo | gcc -E -xc -include 'stddef.h' - | grep size_t
+	typedef long unsigned int size_t;
+	*/
+	
+	size_t size = 512; 
+    char *line = malloc(size*sizeof(char));
+    if(!fgets(line, size, fp)){  //fgets表示读取的字符串不超过n-1个字符
+        free(line);
+        return 0;
+    }
+
+    size_t curr = strlen(line);  //字符串长度不包括/0
+
+    while((line[curr-1] != '\n') && !feof(fp)){
+        if(curr == size-1){
+            size *= 2;
+            line = realloc(line, size*sizeof(char));
+            if(!line) {
+                printf("%ld\n", size);
+                malloc_error();
+            }
+        }
+        size_t readsize = size-curr;
+        if(readsize > INT_MAX) readsize = INT_MAX-1;
+        fgets(&line[curr], readsize, fp);
+        curr = strlen(line);
+    }
+    if(line[curr-1] == '\n') line[curr-1] = '\0';
+
+    return line;
+}
+
